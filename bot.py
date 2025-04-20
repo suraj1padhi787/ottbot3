@@ -4,7 +4,7 @@ import os
 import openai
 from telethon import TelegramClient, events, functions, types
 
-# Railway Variables
+# --- Railway Environment Variables Se Uthana ---
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -13,7 +13,7 @@ session_name = 'newuserbot'
 client = openai.OpenAI(api_key=openai_api_key)
 telegram_client = TelegramClient(session_name, api_id, api_hash)
 
-GROUP_ID = -1002470019043  # Your Group ID
+GROUP_ID = -1002470019043
 
 user_context = {}
 user_confirm_pending = {}
@@ -39,21 +39,6 @@ async def keep_online():
             print(f"Online error: {e}")
         await asyncio.sleep(60)
 
-# --- NEW: Auto Clear Messages System ---
-async def clear_messages():
-    while True:
-        try:
-            async for message in telegram_client.iter_messages(GROUP_ID, limit=100):
-                try:
-                    await telegram_client.delete_messages(GROUP_ID, message.id)
-                except Exception as e:
-                    print(f"Delete Error: {e}")
-        except Exception as e:
-            print(f"Fetch Error: {e}")
-
-        await asyncio.sleep(3600)  # 1 hour = 3600 seconds
-
-# System Prompt
 system_prompt = """
 Tum ek professional aur blunt OTT, Game aur Adult subscription seller ho.
 
@@ -109,7 +94,7 @@ Rules:
 - agar user bole ki usko koi or language me baat karna he toh usse age ki baat usilanguage me krna jab tak wo language chnge karne ko na bolea
 - user ko bore bilkul nai krna aram se usko full convice krna ki wo buy kare
 - jab ott ka price bata rahe ho us time 1 smart comparision dedo official price or hamare price me 
-- Jab user OTT ka naam le to plan aur price smartly suggest karo
+ ka naam le to plan aur price smartly suggest karo
 - Jab 6 month bole to politely encourage karo ki 1 year better hai
 - Jab combo ya 4 ott bole to combo offer smartly suggest karo
 - Jab thank you bole to friendly short welcome bolo
@@ -233,5 +218,4 @@ async def handler(event):
 
 telegram_client.start()
 telegram_client.loop.create_task(keep_online())
-telegram_client.loop.create_task(clear_messages())  # <<< New Auto Deletion
 telegram_client.run_until_disconnected()
