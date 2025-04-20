@@ -15,43 +15,7 @@ telegram_client = TelegramClient(session_name, api_id, api_hash)
 
 GROUP_ID = -1002470019043
 
-user_context = {}
-user_confirm_pending = {}
-group_msg_to_user = {}
-
-ai_active = True
-
-async def send_typing(event):
-    try:
-        await event.client(functions.messages.SetTypingRequest(
-            peer=event.chat_id,
-            action=types.SendMessageTypingAction()
-        ))
-        await asyncio.sleep(random.uniform(1.0, 2.0))
-    except Exception as e:
-        print(f"Typing error: {e}")
-
-async def keep_online():
-    while True:
-        try:
-            await telegram_client(functions.account.UpdateStatusRequest(offline=False))
-        except Exception as e:
-            print(f"Online error: {e}")
-        await asyncio.sleep(60)
-
-async def clear_messages():
-    while True:
-        try:
-            async for message in telegram_client.iter_messages(GROUP_ID, limit=100):
-                try:
-                    await telegram_client.delete_messages(GROUP_ID, message.id)
-                except Exception as e:
-                    print(f"Delete Error: {e}")
-        except Exception as e:
-            print(f"Fetch Error: {e}")
-
-        await asyncio.sleep(3600)  # 1 hour
-
+# Full Original System Prompt with Rules
 system_prompt = """
 Tum ek professional aur blunt OTT, Game aur Adult subscription seller ho.
 
@@ -93,6 +57,9 @@ Agar user 'haa', 'ok', 'krde', 'confirm', 'yes', 'done' jese shabd bole:
 - Agar lagta hai normal casual baat hai to bas friendly dosti bhara normal reply do.
 - Hardcoded kabhi kuch na bolo, context samajh ke smart reply do.
 - agar costmore zyada force kre toh 50 rs ka discount de dena
+- 
+
+Rules:
 - Jab user OTT ka naam le to plan aur price smartly suggest karo
 - Jab 6 month bole to politely encourage karo ki 1 year better hai
 - Jab combo ya 4 ott bole to combo offer smartly suggest karo
@@ -104,21 +71,70 @@ Agar user 'haa', 'ok', 'krde', 'confirm', 'yes', 'done' jese shabd bole:
 - agar user bole ki usko koi or language me baat karna he toh usse age ki baat usilanguage me krna jab tak wo language chnge karne ko na bolea
 - user ko bore bilkul nai krna aram se usko full convice krna ki wo buy kare
 - jab ott ka price bata rahe ho us time 1 smart comparision dedo official price or hamare price me 
-- Jab user OTT ka naam le to smartly plan suggest karo
-- Jab adult site ya game ya combo ya chatgpt ka bole to uske hisab se suggest karo
-- Jab 6 month bole politely 1 year recommend karo
-- Jab confirm kare tabhi payment post karo
-- Full funny, human style reply do
+
+📜 Rules:
+- Pehle platform pucho user se (e.g. Netflix, Pornhub, Titan)
+- Phir validity pucho (6 months / 1 year / week / month)
+- Fir price set karo
+- Jab user confirm kare (haa/ok/done) tab group me post karo
+- Dosti bhare style me friendly human reply do
+- Gali dene wale user ko 3 warning ke baad mute karo
+- ChatGPT style ke short aur funny replies do
+- Typing animation har reply se pehle
+- Always online dikhna
+- 1 hour me group messages auto clear karna
 """
 
-confirm_words = ['haa', 'han', 'ha', 'krde', 'karde', 'kar de', 'done', 'paid', 'payment ho gaya', 'payment done', 'payment hogaya']
+user_context = {}
+user_flow = {}
 
-# OTT, Adult, Game, ChatGPT Keywords
-ott_keywords = ['netflix', 'prime', 'hotstar', 'sony', 'zee5', 'voot', 'mxplayer', 'ullu', 'hoichoi']
-adult_keywords = ['pornhub', 'onlyfans', 'adult']
-game_keywords = ['titan', 'vision', 'lethal', 'gta', 'cod', 'bgmi', 'shoot360']
-chatgpt_keywords = ['chatgpt', 'chat gpt', 'openai']
-combo_keywords = ['combo', '4 ott']
+ai_active = True
+
+async def send_typing(event):
+    try:
+        await event.client(functions.messages.SetTypingRequest(
+            peer=event.chat_id,
+            action=types.SendMessageTypingAction()
+        ))
+        await asyncio.sleep(random.uniform(0.8, 1.5))
+    except:
+        pass
+
+async def keep_online():
+    while True:
+        try:
+            await telegram_client(functions.account.UpdateStatusRequest(offline=False))
+        except:
+            pass
+        await asyncio.sleep(60)
+
+async def clear_messages():
+    while True:
+        try:
+            async for message in telegram_client.iter_messages(GROUP_ID, limit=100):
+                try:
+                    await telegram_client.delete_messages(GROUP_ID, message.id)
+                except:
+                    pass
+        except:
+            pass
+        await asyncio.sleep(3600)
+
+confirm_words = ['haa', 'han', 'ha', 'krde', 'karde', 'kar de', 'ok', 'confirm', 'done', 'ho gaya']
+
+categories = {
+    'ott': ['netflix', 'prime', 'hotstar', 'sony', 'zee5', 'voot', 'ullu', 'hoichoi', 'mxplayer'],
+    'adult': ['pornhub', 'onlyfans', 'manyvids', 'fansly', 'brazzers'],
+    'game': ['titan', 'vision', 'lethal', 'gta', 'cod', 'shoot360', 'bgmi'],
+    'chatgpt': ['chatgpt', 'openai', 'chat gpt']
+}
+
+prices = {
+    'ott': {'6 months': 350, '1 year': 500},
+    'adult': {'6 months': 300, '1 year': 500},
+    'game': {'week': 800, 'month': 1300},
+    'chatgpt': {'1 year': 1000}
+}
 
 @telegram_client.on(events.NewMessage(outgoing=False))
 async def handler(event):
@@ -130,12 +146,12 @@ async def handler(event):
 
     if user_message == '/stopai':
         ai_active = False
-        await event.respond("✅ AI reply system stopped.")
+        await event.respond("✅ AI system stopped.")
         return
 
     if user_message == '/startai':
         ai_active = True
-        await event.respond("✅ AI reply system started.")
+        await event.respond("✅ AI system restarted.")
         return
 
     if not ai_active:
@@ -151,123 +167,99 @@ async def handler(event):
         user_context[sender_id] = user_context[sender_id][-10:]
 
     try:
-        # Detect Plans
-        if any(word in user_message for word in ott_keywords):
-            user_confirm_pending[sender_id] = {
-                "service": "OTT Subscription",
-                "platform": user_message,
-                "price": "₹500",
-                "validity": "1 Year"
-            }
-            await event.respond("✅ OTT Plan selected bhai! Confirm karo (haa/ok/krde).")
+        flow = user_flow.get(sender_id, {})
+
+        # Step 1: Detect service category
+        if 'service' not in flow:
+            for category, keywords in categories.items():
+                if any(word in user_message for word in keywords) or category in user_message:
+                    flow['service'] = category
+                    user_flow[sender_id] = flow
+                    await event.respond(f"✅ Konsa {category.upper()} platform chahiye bhai? (example: {', '.join(keywords[:3])})")
+                    return
+
+        # Step 2: Platform selection
+        if flow.get('service') and 'platform' not in flow:
+            flow['platform'] = user_message.title()
+            user_flow[sender_id] = flow
+
+            if flow['service'] == 'game':
+                await event.respond("✅ Validity choose karo bhai: Week ₹800 / Month ₹1300")
+            elif flow['service'] == 'chatgpt':
+                flow['validity'] = '1 year'
+                flow['price'] = prices['chatgpt']['1 year']
+                user_flow[sender_id] = flow
+                await event.respond(f"✅ Confirm karo bhai (haa/ok) for ChatGPT Premium 1 Year ₹{flow['price']}")
+            else:
+                await event.respond("✅ Validity choose karo bhai: 6 Months / 1 Year")
             return
 
-        if any(word in user_message for word in adult_keywords):
-            user_confirm_pending[sender_id] = {
-                "service": "Adult Site Subscription",
-                "platform": user_message,
-                "price": "₹500",
-                "validity": "1 Year"
-            }
-            await event.respond("✅ Adult Site Plan selected bhai! Confirm karo (haa/ok/krde).")
+        # Step 3: Validity selection
+        if flow.get('platform') and 'validity' not in flow:
+            validity = user_message.lower()
+
+            if flow['service'] == 'game':
+                if validity in ['week', 'month']:
+                    flow['validity'] = validity
+                    flow['price'] = prices['game'][validity]
+                    user_flow[sender_id] = flow
+                    await event.respond(f"✅ Confirm karo bhai (haa/ok) for {flow['platform']} {validity} plan ₹{flow['price']}")
+                else:
+                    await event.respond("❌ Galat validity! Week ya Month likho bhai.")
+            else:
+                if validity in ['6 months', '1 year']:
+                    flow['validity'] = validity
+                    flow['price'] = prices[flow['service']][validity]
+                    user_flow[sender_id] = flow
+                    await event.respond(f"✅ Confirm karo bhai (haa/ok) for {flow['platform']} {validity} plan ₹{flow['price']}")
+                else:
+                    await event.respond("❌ Galat validity! 6 Months ya 1 Year likho bhai.")
             return
 
-        if any(word in user_message for word in game_keywords):
-            user_confirm_pending[sender_id] = {
-                "service": "Game Hack Subscription",
-                "platform": user_message,
-                "price": "₹1300",
-                "validity": "1 Month"
-            }
-            await event.respond("✅ Game Hack Plan selected bhai! Confirm karo (haa/ok/krde).")
-            return
-
-        if any(word in user_message for word in chatgpt_keywords):
-            user_confirm_pending[sender_id] = {
-                "service": "ChatGPT Premium",
-                "platform": "ChatGPT",
-                "price": "₹1000",
-                "validity": "1 Year"
-            }
-            await event.respond("✅ ChatGPT Plan selected bhai! Confirm karo (haa/ok/krde).")
-            return
-
-        if any(word in user_message for word in combo_keywords):
-            user_confirm_pending[sender_id] = {
-                "service": "Combo Offer",
-                "platform": "Any 4 OTTs",
-                "price": "₹1000",
-                "validity": "1 Year"
-            }
-            await event.respond("✅ Combo Offer selected bhai! Confirm karo (haa/ok/krde).")
-            return
-
-        # Confirm Words Handle
+        # Step 4: Final Confirmation
         if any(word in user_message for word in confirm_words):
-            if sender_id in user_confirm_pending:
-                plan = user_confirm_pending[sender_id]
-                service = plan['service']
-                platform = plan['platform']
-                payment_amount = plan['price']
-                validity = plan['validity']
-
+            if flow.get('platform') and flow.get('validity'):
                 user_link = f'<a href="tg://user?id={sender_id}">{sender.first_name}</a>'
 
                 post_text = f"""
 ✅ New Payment Confirmation!
 
 👤 User: {user_link}
-🎯 Service: {service}
-🏷️ Platform: {platform}
-💰 Amount: {payment_amount}
-⏳ Validity: {validity}
+🎯 Service: {flow['service'].title()}
+🏷️ Platform: {flow['platform']}
+💰 Amount: ₹{flow['price']}
+⏳ Validity: {flow['validity'].title()}
 """
-                post = await telegram_client.send_message(
+
+                await telegram_client.send_message(
                     GROUP_ID,
                     post_text,
                     parse_mode='html'
                 )
 
-                group_msg_to_user[post.id] = sender_id
-                del user_confirm_pending[sender_id]
-
                 await event.respond("✅ Sahi decision bhai! QR generate ho raha hai 📲 Wait karo 😎")
+                user_flow.pop(sender_id, None)
                 return
             else:
-                await event.respond("✅ Bhai abhi koi plan select nahi kiya tune! Pehle plan select karo 😄")
+                await event.respond("❌ Pehle plan aur validity complete karo bhai.")
                 return
 
-        # Screenshot Handle
-        if event.photo or (event.document and "image" in event.file.mime_type):
-            await telegram_client.send_message(
-                GROUP_ID,
-                f"✅ Payment Screenshot from {sender.first_name} ({sender_id})"
-            )
-            await telegram_client.forward_messages(
-                GROUP_ID,
-                event.message,
-                event.chat_id
-            )
-            await event.respond("✅ Screenshot mil gaya bhai! Check ho raha hai.")
-            return
-
-        # Normal Chat Conversation
+        # Default AI ChatGPT GPT-4o Reply
         messages_for_gpt = [{"role": "system", "content": system_prompt}] + user_context[sender_id]
 
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages_for_gpt,
-            temperature=0.7
+            temperature=0.6
         )
 
         bot_reply = response.choices[0].message.content
-
         user_context[sender_id].append({"role": "assistant", "content": bot_reply})
 
         await event.respond(bot_reply)
 
     except Exception as e:
-        await event.respond("Bhai thoda error aagaya 😔 Try later.")
+        await event.respond("Error aaya bhai 😔 Try later.")
         print(f"Error: {e}")
 
 telegram_client.start()
