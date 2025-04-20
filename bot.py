@@ -1,10 +1,10 @@
 import asyncio
 import random
 import os
-import openai
 from telethon import TelegramClient, events, functions, types
+import openai
 
-# Railway Variables
+# Railway Environment Variables
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -15,79 +15,45 @@ telegram_client = TelegramClient(session_name, api_id, api_hash)
 
 GROUP_ID = -1002470019043
 
-# Full Original System Prompt with Rules
+# Full System Prompt
 system_prompt = """
 Tum ek professional aur blunt OTT, Game aur Adult subscription seller ho.
 
 Services:
 - OTT: Netflix, Prime Video, Hotstar, SonyLIV, Zee5, YouTube Premium, Telegram Premium etc.
-- Adult Sites: (poora list available on request), 6 months ₹300, 1 year ₹500
-- PC BGMI Hacks: Titan, Falcone, Vision, Lethal, Sharpshooter, rooted & non-rooted available
+- Adult Sites: (list on request) 6M ₹300 / 1Y ₹500
+- PC BGMI Hacks: Titan, Falcone, Vision, Lethal, Sharpshooter
 - iOS Hacks: Shoot360, WinIOS, iOSZero
+- ChatGPT Premium 1 Year ₹1000
 
 Pricing:
 - OTT 1 Year ₹500 (Own Email)
 - OTT 6 Months ₹350 (Random Email)
-- Combo 4 OTT 1 Year ₹1000
+- Combo 4 OTTs 1 Year ₹1000
 - Hack Week ₹800 / Month ₹1300
 - ChatGPT Premium 1 Year ₹1000
 
 Rules:
-Tum ek smart aur friendly OTT subscription seller ho India me.
-Tum sabhi major OTT platforms ka subscription sell karte ho:
-
-Netflix, Amazon Prime Video, Disney+ Hotstar, SonyLIV, Zee5, Voot, ALT Balaji, MX Player, Ullu, Hoichoi, Eros Now, JioCinema, Discovery+, SunNxt, Hungama Play, ShemarooMe, Lionsgate Play, ManoramaMAX, DocuBay, Epic On, Chaupal, Planet Marathi, Klikk, Addatimes, NammaFlix, Tarang Plus, Aha, TVF Play, Vi Movies & TV, YouTube Premium, Telegram Premium, ChatGPT Subscription bhi bech rahe ho.
-
-Plans:
-- 1 Year Plan = ₹500 (Own Email/Number activation, Premium Plan, Max Screen Support, 1 Year Guarantee)
-- 6 Months Plan = ₹350 (Random Email Activation, OTP login, same features but random email)
-- Combo Offer = Any 4 OTTs 1 Year Plan = ₹1000 (Own Email/Number Activation, Max Screens support, Premium Plans)
-- ChatGPT Premium 1 Year Plan = ₹1000
-
-Movie handling:
-- Agar user kisi movie ka naam le jaise "Animal", "Dunki", "Pathaan", to batana ki yeh movie kis OTT pe available hai
-- Fir friendly bolna ki "OTT buy karlo bhai, full HD dekh paoge ❤️"
-PC Games:
-- Agar user koi game ka naam le (e.g., GTA V, COD, Valorant), bolo ₹399 me milega ✅ Original price bhi batana aur Streaming pe available batana.
-
-Agar user 'haa', 'ok', 'krde', 'confirm', 'yes', 'done' jese shabd bole:
-- pehele confirm karana he 6 month cahiye ya 1year agar user validity choose kre toh hi qr wala mesage bheje
-- To context dekh kar decide karo kya reply dena hai.
-- Agar lagta hai user payment confirm kar raha hai to "QR code generate ho raha hai bhai ❤️" type ka human funny reply do.
-- Agar lagta hai normal casual baat hai to bas friendly dosti bhara normal reply do.
-- Hardcoded kabhi kuch na bolo, context samajh ke smart reply do.
-- agar costmore zyada force kre toh 50 rs ka discount de dena
-- 
-
-Rules:
-- Jab user OTT ka naam le to plan aur price smartly suggest karo
-- Jab 6 month bole to politely encourage karo ki 1 year better hai
-- Jab combo ya 4 ott bole to combo offer smartly suggest karo
-- Jab thank you bole to friendly short welcome bolo
-- Hinglish me short (2-3 line) dosti bhare reply do
-- Jab koi gali de to 3 warning ke baad mute kar dena aur reply ignore karna
-- Owner agar /stopai bole to bot band karo aur /startai pe wapas chalu karo
-- Full human funny comedy style reply dena, robotic mat lagna
-- agar user bole ki usko koi or language me baat karna he toh usse age ki baat usilanguage me krna jab tak wo language chnge karne ko na bolea
-- user ko bore bilkul nai krna aram se usko full convice krna ki wo buy kare
-- jab ott ka price bata rahe ho us time 1 smart comparision dedo official price or hamare price me 
-
-📜 Rules:
-- Pehle platform pucho user se (e.g. Netflix, Pornhub, Titan)
-- Phir validity pucho (6 months / 1 year / week / month)
-- Fir price set karo
-- Jab user confirm kare (haa/ok/done) tab group me post karo
-- Dosti bhare style me friendly human reply do
-- Gali dene wale user ko 3 warning ke baad mute karo
-- ChatGPT style ke short aur funny replies do
-- Typing animation har reply se pehle
-- Always online dikhna
-- 1 hour me group messages auto clear karna
+- Dosti bhare human funny style me reply do.
+- Jab user OTT ka bole tab plan suggest karo with Smart Comparison (Official vs Our price).
+- Jab combo bole to 4 OTT selection karwao ek-ek karke.
+- Jab Adult Site bole to naam pucho, validity pucho.
+- Jab Game bole to naam aur week/month pucho.
+- Validity 6 Months/1 Year/Week/Month smartly offer karo.
+- Confirm ('haa', 'ok', 'done') karne par group me post karo.
+- Agar user price me force kare to smartly ₹50 discount suggest karo.
+- Galat language me spam mat karo, normal friendly AI reply do.
+- Gali dene wale ko 3 warning baad mute karo.
+- Multilanguage respect jab tak user bole.
+- Owner /stopai aur /startai kar sakta hai.
+- Har response typing animation ke sath do.
+- Auto clear group messages 1 hr ke baad.
 """
 
 user_context = {}
 user_flow = {}
-
+warned_users = {}
+muted_users = set()
 ai_active = True
 
 async def send_typing(event):
@@ -122,20 +88,6 @@ async def clear_messages():
 
 confirm_words = ['haa', 'han', 'ha', 'krde', 'karde', 'kar de', 'ok', 'confirm', 'done', 'ho gaya']
 
-categories = {
-    'ott': ['netflix', 'prime', 'hotstar', 'sony', 'zee5', 'voot', 'ullu', 'hoichoi', 'mxplayer'],
-    'adult': ['pornhub', 'onlyfans', 'manyvids', 'fansly', 'brazzers'],
-    'game': ['titan', 'vision', 'lethal', 'gta', 'cod', 'shoot360', 'bgmi'],
-    'chatgpt': ['chatgpt', 'openai', 'chat gpt']
-}
-
-prices = {
-    'ott': {'6 months': 350, '1 year': 500},
-    'adult': {'6 months': 300, '1 year': 500},
-    'game': {'week': 800, 'month': 1300},
-    'chatgpt': {'1 year': 1000}
-}
-
 @telegram_client.on(events.NewMessage(outgoing=False))
 async def handler(event):
     global ai_active
@@ -144,18 +96,33 @@ async def handler(event):
     sender_id = sender.id
     user_message = event.raw_text.strip().lower()
 
-    if user_message == '/stopai':
-        ai_active = False
-        await event.respond("✅ AI system stopped.")
+    if sender_id in muted_users:
         return
 
-    if user_message == '/startai':
+    if user_message == '/stopai' and sender_id == int(os.getenv("OWNER_ID", "0")):
+        ai_active = False
+        await event.respond("✅ AI reply band kar diya gaya hai.")
+        return
+
+    if user_message == '/startai' and sender_id == int(os.getenv("OWNER_ID", "0")):
         ai_active = True
-        await event.respond("✅ AI system restarted.")
+        await event.respond("✅ AI reply wapas chalu kar diya gaya hai.")
         return
 
     if not ai_active:
         return
+
+    # Gali Check
+    bad_words = ["madarchod", "bhenchod", "lode", "loda", "gaand", "chutiya", "mc", "bc", "bkl"]
+    if any(word in user_message for word in bad_words):
+        warned_users[sender_id] = warned_users.get(sender_id, 0) + 1
+        if warned_users[sender_id] >= 3:
+            muted_users.add(sender_id)
+            await event.respond("🚫 Tumhe mute kar diya gaya hai.")
+            return
+        else:
+            await event.respond(f"⚠️ Warning {warned_users[sender_id]}: Gali mat do bhai.")
+            return
 
     await send_typing(event)
 
@@ -169,97 +136,61 @@ async def handler(event):
     try:
         flow = user_flow.get(sender_id, {})
 
-        # Step 1: Detect service category
-        if 'service' not in flow:
-            for category, keywords in categories.items():
-                if any(word in user_message for word in keywords) or category in user_message:
-                    flow['service'] = category
-                    user_flow[sender_id] = flow
-                    await event.respond(f"✅ Konsa {category.upper()} platform chahiye bhai? (example: {', '.join(keywords[:3])})")
-                    return
-
-        # Step 2: Platform selection
-        if flow.get('service') and 'platform' not in flow:
-            flow['platform'] = user_message.title()
+        # Combo 4 OTT handling
+        if flow.get('combo_selecting'):
+            selected = flow.get('combo_selected', [])
+            if user_message not in selected:
+                selected.append(user_message.title())
+            flow['combo_selected'] = selected
             user_flow[sender_id] = flow
 
-            if flow['service'] == 'game':
-                await event.respond("✅ Validity choose karo bhai: Week ₹800 / Month ₹1300")
-            elif flow['service'] == 'chatgpt':
-                flow['validity'] = '1 year'
-                flow['price'] = prices['chatgpt']['1 year']
-                user_flow[sender_id] = flow
-                await event.respond(f"✅ Confirm karo bhai (haa/ok) for ChatGPT Premium 1 Year ₹{flow['price']}")
+            if len(selected) >= 4:
+                await event.respond(f"✅ Selected OTTs: {', '.join(selected)}\nConfirm karo bhai (haa/ok)")
+                flow['waiting_confirm'] = True
             else:
-                await event.respond("✅ Validity choose karo bhai: 6 Months / 1 Year")
+                await event.respond(f"✅ {len(selected)}/4 OTTs select ho gaye. Aur OTT batao bhai.")
             return
 
-        # Step 3: Validity selection
-        if flow.get('platform') and 'validity' not in flow:
-            validity = user_message.lower()
-
-            if flow['service'] == 'game':
-                if validity in ['week', 'month']:
-                    flow['validity'] = validity
-                    flow['price'] = prices['game'][validity]
-                    user_flow[sender_id] = flow
-                    await event.respond(f"✅ Confirm karo bhai (haa/ok) for {flow['platform']} {validity} plan ₹{flow['price']}")
-                else:
-                    await event.respond("❌ Galat validity! Week ya Month likho bhai.")
-            else:
-                if validity in ['6 months', '1 year']:
-                    flow['validity'] = validity
-                    flow['price'] = prices[flow['service']][validity]
-                    user_flow[sender_id] = flow
-                    await event.respond(f"✅ Confirm karo bhai (haa/ok) for {flow['platform']} {validity} plan ₹{flow['price']}")
-                else:
-                    await event.respond("❌ Galat validity! 6 Months ya 1 Year likho bhai.")
-            return
-
-        # Step 4: Final Confirmation
-        if any(word in user_message for word in confirm_words):
-            if flow.get('platform') and flow.get('validity'):
-                user_link = f'<a href="tg://user?id={sender_id}">{sender.first_name}</a>'
-
-                post_text = f"""
+        # Final confirmation for combo
+        if flow.get('waiting_confirm') and any(word in user_message for word in confirm_words):
+            user_link = f'<a href="tg://user?id={sender_id}">{sender.first_name}</a>'
+            otts = ', '.join(flow['combo_selected'])
+            post_text = f"""
 ✅ New Payment Confirmation!
 
 👤 User: {user_link}
-🎯 Service: {flow['service'].title()}
-🏷️ Platform: {flow['platform']}
-💰 Amount: ₹{flow['price']}
-⏳ Validity: {flow['validity'].title()}
+🎯 Service: OTT Combo 4 Plan
+🏷️ Platforms: {otts}
+💰 Amount: ₹1000
+⏳ Validity: 1 Year
 """
+            await telegram_client.send_message(GROUP_ID, post_text, parse_mode='html')
+            await event.respond("✅ Sahi decision bhai! QR generate ho raha hai 📲 Wait karo 😎")
+            user_flow.pop(sender_id, None)
+            return
 
-                await telegram_client.send_message(
-                    GROUP_ID,
-                    post_text,
-                    parse_mode='html'
-                )
-
-                await event.respond("✅ Sahi decision bhai! QR generate ho raha hai 📲 Wait karo 😎")
-                user_flow.pop(sender_id, None)
-                return
-            else:
-                await event.respond("❌ Pehle plan aur validity complete karo bhai.")
-                return
-
-        # Default AI ChatGPT GPT-4o Reply
+        # AI Based Flow
         messages_for_gpt = [{"role": "system", "content": system_prompt}] + user_context[sender_id]
 
         response = client.chat.completions.create(
             model="gpt-4o",
             messages=messages_for_gpt,
-            temperature=0.6
+            temperature=0.5
         )
 
         bot_reply = response.choices[0].message.content
         user_context[sender_id].append({"role": "assistant", "content": bot_reply})
 
+        # Combo Detection
+        if "combo" in user_message and "ott" in user_message:
+            user_flow[sender_id] = {'combo_selecting': True, 'combo_selected': []}
+            await event.respond("✅ Bhai 4 OTT select karo ek-ek karke. Example: Netflix, Prime Video, Hotstar, Zee5")
+            return
+
         await event.respond(bot_reply)
 
     except Exception as e:
-        await event.respond("Error aaya bhai 😔 Try later.")
+        await event.respond("❌ Bhai error aagaya. Try later.")
         print(f"Error: {e}")
 
 telegram_client.start()
