@@ -4,7 +4,7 @@ import os
 import openai
 from telethon import TelegramClient, events, functions, types
 
-# --- Railway Environment Variables Se Uthana ---
+# Railway Variables
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -13,7 +13,7 @@ session_name = 'newuserbot'
 client = openai.OpenAI(api_key=openai_api_key)
 telegram_client = TelegramClient(session_name, api_id, api_hash)
 
-GROUP_ID = -1002470019043
+GROUP_ID = -1002470019043  # Your Group ID
 
 user_context = {}
 user_confirm_pending = {}
@@ -39,6 +39,21 @@ async def keep_online():
             print(f"Online error: {e}")
         await asyncio.sleep(60)
 
+# --- NEW: Auto Clear Messages System ---
+async def clear_messages():
+    while True:
+        try:
+            async for message in telegram_client.iter_messages(GROUP_ID, limit=100):
+                try:
+                    await telegram_client.delete_messages(GROUP_ID, message.id)
+                except Exception as e:
+                    print(f"Delete Error: {e}")
+        except Exception as e:
+            print(f"Fetch Error: {e}")
+
+        await asyncio.sleep(3600)  # 1 hour = 3600 seconds
+
+# System Prompt
 system_prompt = """
 Tum ek professional aur blunt OTT, Game aur Adult subscription seller ho.
 
@@ -218,4 +233,5 @@ async def handler(event):
 
 telegram_client.start()
 telegram_client.loop.create_task(keep_online())
+telegram_client.loop.create_task(clear_messages())  # <<< New Auto Deletion
 telegram_client.run_until_disconnected()
