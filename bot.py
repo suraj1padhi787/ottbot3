@@ -4,7 +4,7 @@ import os
 import openai
 from telethon import TelegramClient, events, functions, types
 
-# --- Railway Environment Variables Se Uthana ---
+# Railway Variables
 api_id = int(os.getenv("API_ID"))
 api_hash = os.getenv("API_HASH")
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -38,6 +38,19 @@ async def keep_online():
         except Exception as e:
             print(f"Online error: {e}")
         await asyncio.sleep(60)
+
+async def clear_messages():
+    while True:
+        try:
+            async for message in telegram_client.iter_messages(GROUP_ID, limit=100):
+                try:
+                    await telegram_client.delete_messages(GROUP_ID, message.id)
+                except Exception as e:
+                    print(f"Delete Error: {e}")
+        except Exception as e:
+            print(f"Fetch Error: {e}")
+
+        await asyncio.sleep(3600)  # 1 hour
 
 system_prompt = """
 Tum ek professional aur blunt OTT, Game aur Adult subscription seller ho.
@@ -80,9 +93,6 @@ Agar user 'haa', 'ok', 'krde', 'confirm', 'yes', 'done' jese shabd bole:
 - Agar lagta hai normal casual baat hai to bas friendly dosti bhara normal reply do.
 - Hardcoded kabhi kuch na bolo, context samajh ke smart reply do.
 - agar costmore zyada force kre toh 50 rs ka discount de dena
-- 
-
-Rules:
 - Jab user OTT ka naam le to plan aur price smartly suggest karo
 - Jab 6 month bole to politely encourage karo ki 1 year better hai
 - Jab combo ya 4 ott bole to combo offer smartly suggest karo
@@ -94,15 +104,21 @@ Rules:
 - agar user bole ki usko koi or language me baat karna he toh usse age ki baat usilanguage me krna jab tak wo language chnge karne ko na bolea
 - user ko bore bilkul nai krna aram se usko full convice krna ki wo buy kare
 - jab ott ka price bata rahe ho us time 1 smart comparision dedo official price or hamare price me 
- ka naam le to plan aur price smartly suggest karo
-- Jab 6 month bole to politely encourage karo ki 1 year better hai
-- Jab combo ya 4 ott bole to combo offer smartly suggest karo
-- Jab thank you bole to friendly short welcome bolo
-- Jab user confirm kare to payment post karo
-- Full human funny comedy style reply dena
+- Jab user OTT ka naam le to smartly plan suggest karo
+- Jab adult site ya game ya combo ya chatgpt ka bole to uske hisab se suggest karo
+- Jab 6 month bole politely 1 year recommend karo
+- Jab confirm kare tabhi payment post karo
+- Full funny, human style reply do
 """
 
 confirm_words = ['haa', 'han', 'ha', 'krde', 'karde', 'kar de', 'done', 'paid', 'payment ho gaya', 'payment done', 'payment hogaya']
+
+# OTT, Adult, Game, ChatGPT Keywords
+ott_keywords = ['netflix', 'prime', 'hotstar', 'sony', 'zee5', 'voot', 'mxplayer', 'ullu', 'hoichoi']
+adult_keywords = ['pornhub', 'onlyfans', 'adult']
+game_keywords = ['titan', 'vision', 'lethal', 'gta', 'cod', 'bgmi', 'shoot360']
+chatgpt_keywords = ['chatgpt', 'chat gpt', 'openai']
+combo_keywords = ['combo', '4 ott']
 
 @telegram_client.on(events.NewMessage(outgoing=False))
 async def handler(event):
@@ -135,30 +151,65 @@ async def handler(event):
         user_context[sender_id] = user_context[sender_id][-10:]
 
     try:
-        if "6 month" in user_message or "6 months" in user_message:
+        # Detect Plans
+        if any(word in user_message for word in ott_keywords):
             user_confirm_pending[sender_id] = {
-                "validity": "6 Months",
-                "subscription_name": "OTT Subscription",
-                "price": "₹350"
+                "service": "OTT Subscription",
+                "platform": user_message,
+                "price": "₹500",
+                "validity": "1 Year"
             }
-            await event.respond("✅ 6 Months plan selected. Confirm karo bhai.")
+            await event.respond("✅ OTT Plan selected bhai! Confirm karo (haa/ok/krde).")
             return
 
-        if "1 year" in user_message or "12 months" in user_message:
+        if any(word in user_message for word in adult_keywords):
             user_confirm_pending[sender_id] = {
-                "validity": "1 Year",
-                "subscription_name": "OTT Subscription",
-                "price": "₹500"
+                "service": "Adult Site Subscription",
+                "platform": user_message,
+                "price": "₹500",
+                "validity": "1 Year"
             }
-            await event.respond("✅ 1 Year plan selected. Confirm karo bhai.")
+            await event.respond("✅ Adult Site Plan selected bhai! Confirm karo (haa/ok/krde).")
             return
 
+        if any(word in user_message for word in game_keywords):
+            user_confirm_pending[sender_id] = {
+                "service": "Game Hack Subscription",
+                "platform": user_message,
+                "price": "₹1300",
+                "validity": "1 Month"
+            }
+            await event.respond("✅ Game Hack Plan selected bhai! Confirm karo (haa/ok/krde).")
+            return
+
+        if any(word in user_message for word in chatgpt_keywords):
+            user_confirm_pending[sender_id] = {
+                "service": "ChatGPT Premium",
+                "platform": "ChatGPT",
+                "price": "₹1000",
+                "validity": "1 Year"
+            }
+            await event.respond("✅ ChatGPT Plan selected bhai! Confirm karo (haa/ok/krde).")
+            return
+
+        if any(word in user_message for word in combo_keywords):
+            user_confirm_pending[sender_id] = {
+                "service": "Combo Offer",
+                "platform": "Any 4 OTTs",
+                "price": "₹1000",
+                "validity": "1 Year"
+            }
+            await event.respond("✅ Combo Offer selected bhai! Confirm karo (haa/ok/krde).")
+            return
+
+        # Confirm Words Handle
         if any(word in user_message for word in confirm_words):
             if sender_id in user_confirm_pending:
                 plan = user_confirm_pending[sender_id]
-                subscription_name = plan['subscription_name']
-                validity = plan['validity']
+                service = plan['service']
+                platform = plan['platform']
                 payment_amount = plan['price']
+                validity = plan['validity']
 
                 user_link = f'<a href="tg://user?id={sender_id}">{sender.first_name}</a>'
 
@@ -166,8 +217,9 @@ async def handler(event):
 ✅ New Payment Confirmation!
 
 👤 User: {user_link}
+🎯 Service: {service}
+🏷️ Platform: {platform}
 💰 Amount: {payment_amount}
-🎯 Subscription: {subscription_name}
 ⏳ Validity: {validity}
 """
                 post = await telegram_client.send_message(
@@ -182,9 +234,10 @@ async def handler(event):
                 await event.respond("✅ Sahi decision bhai! QR generate ho raha hai 📲 Wait karo 😎")
                 return
             else:
-                await event.respond("✅ Bhai payment screenshot bhejo!")
+                await event.respond("✅ Bhai abhi koi plan select nahi kiya tune! Pehle plan select karo 😄")
                 return
 
+        # Screenshot Handle
         if event.photo or (event.document and "image" in event.file.mime_type):
             await telegram_client.send_message(
                 GROUP_ID,
@@ -198,6 +251,7 @@ async def handler(event):
             await event.respond("✅ Screenshot mil gaya bhai! Check ho raha hai.")
             return
 
+        # Normal Chat Conversation
         messages_for_gpt = [{"role": "system", "content": system_prompt}] + user_context[sender_id]
 
         response = client.chat.completions.create(
@@ -218,4 +272,5 @@ async def handler(event):
 
 telegram_client.start()
 telegram_client.loop.create_task(keep_online())
+telegram_client.loop.create_task(clear_messages())
 telegram_client.run_until_disconnected()
